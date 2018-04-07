@@ -1,2 +1,1 @@
-# petrinet
-implements petrinet  by typescript
+# bpmn2-engine
