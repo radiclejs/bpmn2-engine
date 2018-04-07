@@ -1,0 +1,28 @@
+{
+  "name": "bpmnm2-engine",
+  "version": "0.1.0",
+  "description": "js excution enginee for bpmn2.0",
+  "main": "app.js",
+  "author": "yuzhe",
+  "license": "MIT",
+  "bin": {
+    "mocha": "node_modules/mocha/bin/mocha"
+  },
+  "scripts": {
+    "demo": "nodemon ./demo",
+    "tsc": "tsc -p tsconfig.json",
+    "tsc:w": "tsc -p tsconfig.json -w"
+  },
+  "devDependencies": {
+    "nodemon": "^1.17.2",
+    "tslib": "^1.9.0",
+    "typescript": "^2.8.1"
+  },
+  "dependencies": {
+    "@types/jsonfile": "^4.0.1",
+    "@types/uuid": "^3.4.3",
+    "bpmn-moddle": "^5.1.1",
+    "jsonfile": "^4.0.0",
+    "uuid": "^3.2.1"
+  }
+}
