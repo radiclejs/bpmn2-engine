@@ -1,4 +1,4 @@
-export * from './Activity'
+// export * from './Activity'
 export * from './Process'
 export * from './StartEvent'
 export * from './EndEvent'

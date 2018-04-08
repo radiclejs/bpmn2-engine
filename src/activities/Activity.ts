@@ -1,5 +1,6 @@
 // import * as uuid from 'uuid'
 import { EventEmitter } from 'events'
+// import { Element, SequenceFlowElement } from '../interfaces'
 
 export class Activity extends EventEmitter {
   id: string
@@ -7,7 +8,7 @@ export class Activity extends EventEmitter {
   // 当前对应的xml节点对象
   element: any
 
-  constructor(element, parent?) {
+  constructor(element) {
     super()
     this.id = element.id
     this.name = element.name

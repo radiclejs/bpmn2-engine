@@ -1,8 +1,9 @@
 import * as Helper from '../helper'
 import { Activity } from './Activity'
-import * as DEBUG from 'debug'
+import { Context, ProcessElement } from '../interfaces'
+// import { SequenceFlow } from './SequenceFlow'
 
-const debug = DEBUG('bpmn2-engine:activity:process')
+const debug = require('debug')('bpmn2-engine:activity:process');
 
 export class Process extends Activity {
 
@@ -16,93 +17,127 @@ export class Process extends Activity {
     this.init()
   }
 
-  id: string
-  name: string
+  element: ProcessElement
+
   // 解析出的xml对象的上下文
-  context: any
+  context: Context
   listener: any
   children: object = {}
+  // 所有走过的路
   paths: object = {}
+  // 所有的输出流
   sequenceFlows = []
+  // 激活中的节点
   activeArtifacts: number = 0
   stopInitialized: boolean = false
-  eleStartEvents = []
+  startEventElements = []
   variables: object = {}
   isEnded: boolean = false
 
   private init() {
-    this.eleStartEvents = Helper.getStartEvents(this.element)
+    // 取得所有入口节点
+    this.startEventElements = Helper.getStartEvents(this.element)
 
-    this.sequenceFlows = Helper.getSequenceFlows(this.context).map(obj => {
-      let ActivityClass = Helper.element2Activity(obj.element)
-      return new ActivityClass(obj.element, this)
+    // 创建所有输出流的实例(实际上就是所有流, 每个流都即是输入又是输出)
+    this.sequenceFlows = Helper.getAllOutboundSequenceFlows(this.context).map(reference => {
+      let ActivityClass = Helper.element2Activity(reference.element)
+      return new ActivityClass(reference.element, this)
     })
   }
 
   run(variables) {
     this.emit('start', this);
-    if (!this.eleStartEvents.length) {
+    if (!this.startEventElements.length) {
       debug('error: no startEvent found')
       return this.emit('end', this);
     }
     this.variables = Object.assign({}, variables);
-    const startActivity = this.getChildActivityById(this.eleStartEvents[0].id);
+    const startActivity = this.getChildActivityById(this.startEventElements[0].id);
     this.execute(startActivity)
   }
 
-  signal(id, input) {
-    const childActivity = this.getChildActivityById(id);
-    childActivity.signal(input);
+  signal(elementId, variables) {
+    const childActivity = this.getChildActivityById(elementId);
+    childActivity.signal(variables);
   }
 
-  take(target) {
-    this.execute(target);
-  }
+  // take(target) {
+  //   this.execute(target);
+  // }
 
+  // 执行子节点
   execute(childActivity) {
     debug('execute', childActivity.id);
     if (childActivity.outbound) {
-      // Listen for outbound flows
+      // 监听所有输出流的事件
+      const takenHandler = sequenceFlow => {
+        this.activeArtifacts--;
+
+        sequenceFlow.removeListener('discarded', discardedHandler)
+
+        const child = this.getChildActivityById(sequenceFlow.target.id);
+
+        this.paths[sequenceFlow.element.id] = sequenceFlow;
+
+        this.execute(child);
+      }
+
+      const discardedHandler = sequenceFlow => {
+        this.activeArtifacts--;
+        sequenceFlow.removeListener('taken', takenHandler);
+      }
+
       childActivity.outbound.forEach((sequenceFlow) => {
-        sequenceFlow._parentTakenListener = function (flow) {
-          this.activeArtifacts--;
-
-          flow.removeListener('discarded', sequenceFlow._parentDiscardedListener);
-          const child = this.getChildActivityById(flow.target.id);
-
-          this.paths[flow.element.element.id] = flow;
-
-          this.execute(child);
-        };
-        sequenceFlow._parentDiscardedListener = function (flow) {
-          this.activeArtifacts--;
-          flow.removeListener('taken', sequenceFlow._parentTakenListener);
-        };
-
         this.activeArtifacts++;
-        sequenceFlow.once('taken', sequenceFlow._parentTakenListener);
-        sequenceFlow.once('discarded', sequenceFlow._parentDiscardedListener);
+        sequenceFlow.once('taken', takenHandler);
+        sequenceFlow.once('discarded', discardedHandler);
       });
     }
 
-    childActivity.once('start', (activity) => {
-      this.emit('start', activity)
+    // 把子节点的事件响应代理都根节点process上
+    const emitHandler = (error, eventName, activity?) => {
+      let debugStr = `${eventName}`
+      if (error) {
+        debugStr += `:${error.message}`
+        debug(debugStr)
+        this.emit(eventName, error)
+        return
+      }
+
+      // let debugStr = `${eventName}-${activity.id}(${activity.name || ''})`
+      debugStr += `-${activity.id}(${activity.name || ''})`
+      debug(debugStr)
+      this.emit(eventName, activity)
+    }
+
+    const waitHandler = activity => {
+      emitHandler(null, 'wait', activity)
+    }
+
+    childActivity.once('start', activity => {
+      emitHandler(null, 'start', activity)
     });
 
     childActivity.once('end', () => {
       this.activeArtifacts--;
       debug('completed', childActivity.element.id, 'activeArtifacts', this.activeArtifacts);
 
+      childActivity.removeListener('wait', waitHandler)
+
+      // 如果执行结束的是一个结束节点, 说明整个流程执行结束
       if (childActivity.isEndEvent) {
-        setImmediate(this.stop.bind(this));
+        this.stop()
       }
     });
 
-    childActivity.once('error', (e) => {
-      this.emit('error', e);
+    childActivity.once('error', e => {
+      emitHandler(e, 'error')
     });
 
+    childActivity.on('wait', waitHandler)
+
     this.activeArtifacts++;
+    // 调用子节点的run方法, 一直碰到用户任务这种需要手动操作的节点才停下来
     childActivity.run(this.variables);
   }
 
@@ -124,33 +159,31 @@ export class Process extends Activity {
     this.emit('end', this);
   }
 
-  getChildActivityById(id) {
-    if (this.children[id]) return this.children[id];
+  getChildActivityById(elementId) {
+    if (this.children[elementId]) return this.children[elementId];
 
-    const obj = this.context.elementsById[id];
-    const ActivityClass = Helper.element2Activity(obj.element)
-    const child = new ActivityClass(obj.element, this);
+    const element = this.context.elementsById[elementId];
+    const ActivityClass = Helper.element2Activity(element)
+    const child = new ActivityClass(element, this);
 
-    this.children[id] = child;
+    this.children[elementId] = child;
 
     return child;
   }
 
-  // ?
-  getOutboundSequenceFlows(id) {
-    return this.sequenceFlows.filter((sf) => sf.activity.id === id);
+  getOutboundSequenceFlows(elementId) {
+    return this.sequenceFlows.filter((sf) => sf.element.sourceRef.id === elementId);
   }
 
-  //?
-  getInboundSequenceFlows(id) {
-    return this.sequenceFlows.filter((sf) => sf.target.id === id);
+  getInboundSequenceFlows(elementId) {
+    return this.sequenceFlows.filter((sf) => sf.element.targetRef.id === elementId);
   }
 
-  isDefaultSequenceFlow(id) {
-    return Helper.isDefaultSequenceFlow(this.context, id);
+  isDefaultSequenceFlow(sequenceFlowId) {
+    return Helper.isDefaultSequenceFlow(this.context, sequenceFlowId);
   }
 
-  getSequenceFlowTarget(id) {
-    return Helper.getSequenceFlowTarget(this.context, id);
+  getSequenceFlowTarget(sequenceFlowId) {
+    return Helper.getSequenceFlowTarget(this.context, sequenceFlowId);
   }
 }

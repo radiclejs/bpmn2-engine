@@ -21,6 +21,7 @@
   "dependencies": {
     "@types/jsonfile": "^4.0.1",
     "@types/uuid": "^3.4.3",
+    "axios": "^0.18.0",
     "bpmn-moddle": "^5.1.1",
     "jsonfile": "^4.0.0",
     "uuid": "^3.2.1"
