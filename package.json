@@ -9,21 +9,30 @@
     "mocha": "node_modules/mocha/bin/mocha"
   },
   "scripts": {
-    "demo": "nodemon ./demo",
+    "dev": "webpack",
+    "dev:node": "webpack --target=node",
+    "run": "webpack-dev-server",
+    "run:node": "set DEBUG=bpmn*,-not_this & nodemon ./demo/bundle.js",
     "tsc": "tsc -p tsconfig.json",
     "tsc:w": "tsc -p tsconfig.json -w"
   },
   "devDependencies": {
     "nodemon": "^1.17.2",
+    "ts-loader": "^4.2.0",
     "tslib": "^1.9.0",
-    "typescript": "^2.8.1"
+    "typescript": "^2.8.1",
+    "webpack": "^4.5.0",
+    "webpack-cli": "^2.0.14",
+    "webpack-dev-server": "^3.1.3"
   },
   "dependencies": {
     "@types/jsonfile": "^4.0.1",
     "@types/uuid": "^3.4.3",
-    "axios": "^0.18.0",
     "bpmn-moddle": "^5.1.1",
+    "es6-promisify": "^6.0.0",
     "jsonfile": "^4.0.0",
+    "request": "^2.85.0",
+    "request-promise-native": "^1.0.5",
     "uuid": "^3.2.1"
   }
 }

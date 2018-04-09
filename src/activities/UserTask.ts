@@ -22,6 +22,7 @@ export class UserTask extends Activity {
   run() {
     debug('run', this.element.id);
     this.emit('start', this);
+    this.emit('wait', this)
   }
 
   signal(variables) {

@@ -1,6 +1,7 @@
-import { BPMN_ACTIVITI_TYPES } from '../enums'
+import { BPMN_ACTIVITI_TYPES, ACTIVITI_TYPES } from '../enums'
 import { Element, ProcessElement, Context, Reference } from '../interfaces'
 import * as ActivityMap from '../activities'
+// import * as _ from 'lodash'
 
 export function findExecutableProcessId(context) {
   return Object.keys(context.elementsById).find(key => {
@@ -14,8 +15,7 @@ export function element2Activity(element) {
   }
 
   const Activity = Object.values(ActivityMap).find(obj => {
-    let key = obj.constructor.name.toUpperCase()
-    return element.$type === BPMN_ACTIVITI_TYPES[key]
+    return BPMN_ACTIVITI_TYPES[element.$type] === ACTIVITI_TYPES[obj.name]
   })
 
   if (!Activity) {

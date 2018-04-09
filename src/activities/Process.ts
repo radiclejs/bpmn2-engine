@@ -96,7 +96,7 @@ export class Process extends Activity {
 
     // 把子节点的事件响应代理都根节点process上
     const emitHandler = (error, eventName, activity?) => {
-      let debugStr = `${eventName}`
+      let debugStr = `FIRE_EVENT: ${eventName}`
       if (error) {
         debugStr += `:${error.message}`
         debug(debugStr)
@@ -118,10 +118,10 @@ export class Process extends Activity {
       emitHandler(null, 'start', activity)
     });
 
-    childActivity.once('end', () => {
+    childActivity.once('end', (activity) => {
       this.activeArtifacts--;
-      debug('completed', childActivity.element.id, 'activeArtifacts', this.activeArtifacts);
-
+      debug('completed', activity.element.id, 'activeArtifacts', this.activeArtifacts);
+      emitHandler(null, 'completed', activity)
       childActivity.removeListener('wait', waitHandler)
 
       // 如果执行结束的是一个结束节点, 说明整个流程执行结束

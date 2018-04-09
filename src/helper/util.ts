@@ -1,4 +1,5 @@
-import * as BpmnModdle from 'bpmn-moddle'
+import BpmnModdle from 'bpmn-moddle'
+import{ promisify } from 'es6-promisify'
 
 export function delay(delay): Promise<any> {
   return new Promise(function(resolve) {
@@ -6,19 +7,15 @@ export function delay(delay): Promise<any> {
   })
 }
 
-export function promisify(fn, receiver): Function {
-  return (...args) => {
-    return new Promise((resolve, reject) => {
-      fn.apply(receiver, [...args, (err, res) => {
-        return err ? reject(err) : resolve(res);
-      }]);
-    });
-  };
-};
-
-export function transform(sourceXml: string, callback: Function = () => {}): Promise<any> {
+export function transform(sourceXml: string): Promise<any> {
   const moddle = new BpmnModdle()
-  if (typeof sourceXml !== 'string') return callback(new Error('Nothing to transform'))
-  const fromXML = promisify(moddle.fromXML, moddle)
-  return fromXML(sourceXml, callback)
+  if (typeof sourceXml !== 'string') {
+    throw new Error('Nothing to transform')
+  }
+
+  let fromXML = moddle.fromXML.bind(moddle)
+  fromXML[promisify.argumentNames] = ['definition', 'context']
+
+  fromXML = promisify(fromXML)
+  return fromXML(sourceXml)
 };
